@@ -16,14 +16,14 @@ use winutils_rs::windefs::*;
 
 /// Wrapper of a get_virtual_disk::Info struct that can be of a variable heap allocated length.
 pub struct GetVirtualDiskInfoWrapper {
-    raw_buffer: Vec<Byte>,
+    pub raw_buffer: Vec<Byte>,
 }
 
 impl GetVirtualDiskInfoWrapper {
     /// Gets a reference to a get_virtual_disk::Info struct,
     /// using the internal raw buffer.
     pub fn info(&self) -> &get_virtual_disk::Info {
-        unsafe { std::mem::transmute(self.raw_buffer.as_ptr()) }
+        unsafe { &*(self.raw_buffer.as_ptr() as *const _ as *const get_virtual_disk::Info) }
     }
 
     /// Gets a mut reference to a get_virtual_disk::Info struct,
@@ -354,7 +354,7 @@ impl VirtualDisk {
         let mut size: u32 = std::mem::size_of::<get_virtual_disk::Info>() as u32;
         raw_buffer.reserve(size as usize);
 
-        let info_ptr = raw_buffer.as_mut_ptr() as *mut get_virtual_disk::Info;
+        let mut info_ptr = raw_buffer.as_mut_ptr() as *mut get_virtual_disk::Info;
 
         unsafe {
             (*info_ptr).version = version;
@@ -365,7 +365,7 @@ impl VirtualDisk {
             match error_code_to_winresult_code(result) {
                 WinResultCode::ErrorInsufficientBuffer => {
                     raw_buffer.reserve(size as usize);
-
+                    info_ptr = raw_buffer.as_mut_ptr() as *mut get_virtual_disk::Info;
                     let result =
                         GetVirtualDiskInformation(self.handle, &mut size, info_ptr, &mut size_used);
 
