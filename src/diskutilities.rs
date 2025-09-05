@@ -331,7 +331,7 @@ impl Disk {
 
             assert!(LAYOUT_BUFFER_SIZE >= bytes as usize);
 
-            let mut layout_mut_ref: &mut Layout = std::mem::transmute(layout_buffer.as_mut_ptr());
+            let layout_mut_ref: &mut Layout = std::mem::transmute(layout_buffer.as_mut_ptr());
             let mut partition_info = PartitionInfo {
                 volume_path: String::new(),
                 disk_id: layout_mut_ref.info.u.Gpt().DiskId,

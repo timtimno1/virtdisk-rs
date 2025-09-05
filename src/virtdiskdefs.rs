@@ -825,7 +825,7 @@ pub mod mirror_virtual_disk {
 
 pub mod query_changes_virtual_disk {
     #[repr(C)]
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Default)]
     pub struct Range {
         pub byte_offset: u64,
         pub byte_length: u64,
