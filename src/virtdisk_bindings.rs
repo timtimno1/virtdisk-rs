@@ -11,6 +11,7 @@
 use crate::virtdiskdefs::*;
 use winutils_rs::windefs::*;
 
+#[allow(non_snake_case)]
 #[link(name = "virtdisk")]
 extern "C" {
     pub fn OpenVirtualDisk(
@@ -189,12 +190,77 @@ extern "C" {
         response: *mut raw_scsi_virtual_disk::Response,
     ) -> DWord;
 
-    pub fn ForkVirtualDisk(
-        virtualDiskHandle: Handle,
-        flags: u32, // fork_virtual_disk::Flag
-        parameters: *const fork_virtual_disk::Parameters,
-        overlapped: *mut Overlapped,
-    ) -> DWord;
+}
 
-    pub fn CompleteForkVirtualDisk(virtualDiskHandle: Handle) -> DWord;
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetModuleHandleA(lp_module_name: *const u8) -> *mut std::ffi::c_void;
+    fn LoadLibraryA(lp_lib_file_name: *const u8) -> *mut std::ffi::c_void;
+    fn GetProcAddress(
+        h_module: *mut std::ffi::c_void,
+        lp_proc_name: *const u8,
+    ) -> *mut std::ffi::c_void;
+}
+
+type CompleteForkVirtualDiskFn = unsafe extern "system" fn(Handle) -> DWord;
+type ForkVirtualDiskFn = unsafe extern "system" fn(
+    Handle,
+    u32, // fork_virtual_disk::Flag
+    *const fork_virtual_disk::Parameters,
+    *mut Overlapped,
+) -> DWord;
+
+/// Dynamically retrieves the address of a function from a given DLL.
+unsafe fn get_proc_address_dynamic(
+    dll_name: &[u8],
+    func_name: &[u8],
+) -> Option<*mut std::ffi::c_void> {
+    let mut h_module = GetModuleHandleA(dll_name.as_ptr());
+    if h_module.is_null() {
+        h_module = LoadLibraryA(dll_name.as_ptr());
+    }
+
+    if h_module.is_null() {
+        return None;
+    }
+
+    let func_ptr = GetProcAddress(h_module, func_name.as_ptr());
+    if func_ptr.is_null() {
+        return None;
+    }
+
+    Some(func_ptr)
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn CompleteForkVirtualDisk(virtualDiskHandle: Handle) -> DWord {
+    const DLL_NAME: &[u8] = b"virtdisk.dll\0";
+    const FUNC_NAME: &[u8] = b"CompleteForkVirtualDisk\0";
+
+    match get_proc_address_dynamic(DLL_NAME, FUNC_NAME) {
+        Some(func_ptr) => {
+            let func: CompleteForkVirtualDiskFn = std::mem::transmute(func_ptr);
+            func(virtualDiskHandle)
+        }
+        None => 50, // ERROR_NOT_SUPPORTED
+    }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn ForkVirtualDisk(
+    virtualDiskHandle: Handle,
+    flags: u32, // fork_virtual_disk::Flag
+    parameters: *const fork_virtual_disk::Parameters,
+    overlapped: *mut Overlapped,
+) -> DWord {
+    const DLL_NAME: &[u8] = b"virtdisk.dll\0";
+    const FUNC_NAME: &[u8] = b"ForkVirtualDisk\0";
+
+    match get_proc_address_dynamic(DLL_NAME, FUNC_NAME) {
+        Some(func_ptr) => {
+            let func: ForkVirtualDiskFn = std::mem::transmute(func_ptr);
+            func(virtualDiskHandle, flags, parameters, overlapped)
+        }
+        None => 50, // ERROR_NOT_SUPPORTED
+    }
 }
